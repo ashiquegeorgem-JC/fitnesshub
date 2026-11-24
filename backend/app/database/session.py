@@ -1,7 +1,10 @@
-from typing import Generator
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from typing import Dict, Generator
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session, sessionmaker
+
 from app.core.config import settings
+from app.core.logging import logger
 
 # Database engine configured for PostgreSQL with pooling and health pre-ping
 engine = create_engine(
@@ -26,3 +29,24 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+def check_db_connectivity() -> Dict[str, str]:
+    """
+    Probes database health by executing a lightweight query ('SELECT 1').
+    Returns connection status and dialect information without raising exceptions.
+    """
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {
+            "status": "connected",
+            "dialect": engine.dialect.name,
+        }
+    except SQLAlchemyError as exc:
+        logger.warning(f"Database health check failed: {str(exc)}")
+        return {
+            "status": "disconnected",
+            "dialect": engine.dialect.name,
+            "message": "Database server is unreachable or offline",
+        }

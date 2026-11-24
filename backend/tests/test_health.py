@@ -16,25 +16,30 @@ def test_root_endpoint(client: TestClient) -> None:
 
 def test_health_endpoint(client: TestClient) -> None:
     """
-    Test GET /health returns 200 and healthy status.
+    Test GET /health returns 200.
+    With PostgreSQL offline, status is 'degraded' and database is 'disconnected'.
+    With PostgreSQL online, status is 'healthy' and database is 'connected'.
     """
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "healthy"
+    # Honest reporting: status reflects actual DB state
+    assert data["status"] in ("healthy", "degraded")
     assert data["version"] == "1.0.0"
-    assert data["database"] == "configured"
+    assert data["database"] in ("connected", "disconnected")
     assert "environment" in data
+    assert "database_details" in data
 
 
 def test_api_v1_health_endpoint(client: TestClient) -> None:
     """
     Test GET /api/v1/health returns 200 through modular router.
+    Status reflects actual database connectivity.
     """
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "healthy"
+    assert data["status"] in ("healthy", "degraded")
     assert data["version"] == "1.0.0"
 
 
